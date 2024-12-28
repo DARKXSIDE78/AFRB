@@ -327,10 +327,4 @@ async def auto_rename_files(client, message):
 
     finally:
         # Clean up
-        if os.path.exists(renamed_file_path):
-            os.remove(renamed_file_path)
-        if os.path.exists(metadata_file_path):
-            os.remove(metadata_file_path)
-        if ph_path and os.path.exists(ph_path):
-            os.remove(ph_path)
-        del renaming_operations[file_id]
+        print("LOgg")
