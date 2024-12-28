@@ -324,3 +324,7 @@ async def auto_rename_files(client, message):
         os.remove(file_path)
         if ph_path:
             os.remove(ph_path)
+
+    finally:
+        # Clean up
+        print("Log: Cleanup completed.")
