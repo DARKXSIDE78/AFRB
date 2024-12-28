@@ -19,8 +19,8 @@ class Config(object):
     START_PIC   = os.environ.get("START_PIC", "https://static.vecteezy.com/system/resources/thumbnails/036/095/205/small_2x/ai-generated-beautiful-anime-girl-photo.jpg")
     ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '6302971969 7086472788').split()]
     FORCE_SUB_CHANNELS = os.environ.get('FORCE_SUB_CHANNELS', '').split(',')
-    LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "-1002258136705"))
-    DUMP_CHANNEL = int(os.environ.get("DUMP_CHANNEL", "-1002258136705"))
+    LOG_CHANNEL = os.environ.get("LOG_CHANNEL", "@teteetetsss")
+    DUMP_CHANNEL = os.environ.get("DUMP_CHANNEL", "@teteetetsss")
     
     # wes response configuration     
     WEBHOOK = bool(os.environ.get("WEBHOOK", "True"))
