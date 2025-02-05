@@ -22,7 +22,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'  # You can adjust the version here
+          python-version: '3.12'  # You can adjust the version here
 
       # Step 3: Install dependencies
       - name: Install dependencies
