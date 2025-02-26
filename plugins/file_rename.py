@@ -59,18 +59,6 @@ async def end_sequence(client, message: Message):
     for file in file_list:
         await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
 
-@Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
-async def handle_media(client, message: Message):
-    user_id = message.from_user.id
-    
-    if user_id in active_sequences:
-        file_info = {
-            "file_id": message.document.file_id,
-            "file_name": message.document.file_name if message.document.file_name else "Unknown"
-        }
-        active_sequences[user_id].append(file_info)
-        await message.reply_text(f"File received: {file_info['file_name']}")
-        return
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
@@ -190,11 +178,26 @@ def extract_episode_number(filename):
 # Example Usage:
 filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @Codeflix_Bots.mkv"
 episode_number = extract_episode_number(filename)
-print(f"Extracted Episode Number: {episode_number}")
+print(f"Extracted Episode Number: {episode_number}")    
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
+    file_id = message.document.file_id if message.document else message.video.file_id if message.video else message.audio.file_id
+    file_name = message.document.file_name if message.document else message.video.file_name if message.video else message.audio.file_name
+
+    
+    if user_id in active_sequences:
+        # If sequence is active, store the file instead of renaming
+        file_info = {
+            "file_id": file_id,
+            "file_name": file_name if file_name else "Unknown"
+        }
+        active_sequences[user_id].append(file_info)
+        await message.reply_text(f"File received in sequence: {file_info['file_name']}")
+        return  # Do not process auto-rename when in sequence mode
+
+    # Auto-Rename Logic (Runs only when not in sequence mode)
     format_template = await codeflixbots.get_format_template(user_id)
     media_preference = await codeflixbots.get_media_preference(user_id)
 
