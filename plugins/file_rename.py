@@ -41,16 +41,22 @@ async def end_sequence(client, message: Message):
         await message.reply_text("No files were sent in this sequence!")
         return
     
-    # Sorting function to prioritize 480p, then 720p, then 1080p
+    # Sorting function for correct resolution order
     def sort_files(file):
         filename = file["file_name"].lower() if "file_name" in file else ""
-        if "480p" in filename:
-            return 1
-        elif "720p" in filename:
-            return 2
-        elif "1080p" in filename:
-            return 3
-        return 4  # Default priority if resolution is unknown
+        resolution_priority = {
+            "144p": 1,
+            "360p": 2,
+            "480p": 3,
+            "720p": 4,
+            "1080p": 5,
+            "2k": 6,
+            "4k": 7
+        }
+        for resolution, priority in resolution_priority.items():
+            if resolution in filename:
+                return priority
+        return 8  # Default (unknown resolution goes last)
     
     file_list.sort(key=sort_files)  # Sort files before sending
     
