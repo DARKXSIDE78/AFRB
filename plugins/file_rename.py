@@ -19,6 +19,16 @@ renaming_operations = {}
 
 active_sequences = {}
 
+resolution_priority = {
+    "144p": 1,
+    "360p": 2,
+    "480p": 3,
+    "720p": 4,
+    "1080p": 5,
+    "2k": 6,
+    "4k": 7
+}
+
 @Client.on_message(filters.command("ssequence") & filters.private)
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
@@ -41,29 +51,32 @@ async def end_sequence(client, message: Message):
         await message.reply_text("No files were sent in this sequence!")
         return
     
-    # Sorting function for correct resolution order
+    # Function to extract the episode number from format "[S1-episode]"
+    def extract_ep_number(filename):
+        match = re.search(r'\[S\d+-(\d+)\]', filename)  # Extract episode number from [S1-XX]
+        return int(match.group(1)) if match else float('inf')  # Convert to integer, else send to last
+
+    # Sorting function to prioritize resolution and episode number correctly
     def sort_files(file):
-        filename = file["file_name"].lower() if "file_name" in file else ""
-        resolution_priority = {
-            "144p": 1,
-            "360p": 2,
-            "480p": 3,
-            "720p": 4,
-            "1080p": 5,
-            "2k": 6,
-            "4k": 7
-        }
+        filename = file.get("file_name", "").lower()
+        episode_number = extract_ep_number(filename)  # Extract episode number
+
+        resolution_rank = 8  # Default lowest priority
         for resolution, priority in resolution_priority.items():
             if resolution in filename:
-                return priority
-        return 8  # Default (unknown resolution goes last)
-    
-    file_list.sort(key=sort_files)  # Sort files before sending
-    
+                resolution_rank = priority
+                break  # Stop checking once a match is found
+
+        return (episode_number, resolution_rank)  # Sort first by episode number, then by resolution
+
+    # Sort the file list correctly
+    file_list.sort(key=sort_files)
+
     await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
-    
+
     for file in file_list:
-        await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
+        await client.send_document(message.chat.id, file["file_id"], caption=f"**{file.get('file_name', '')}**")
+
 
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
