@@ -51,10 +51,10 @@ async def end_sequence(client, message: Message):
         await message.reply_text("No files were sent in this sequence!")
         return
 
-    # Function to extract episode number and convert it properly
+    # Function to extract and correctly parse episode number
     def extract_ep_number(filename):
-        match = re.search(r'\[S\d+-(\d+)\]', filename)  # Extract episode number from [S1-XX]
-        return int(match.group(1)) if match else float('inf')  # Convert to integer, else move last
+        match = re.search(r'\[S\d+-(\d+)\]', filename)  # Extracts episode number from [S1-XX]
+        return int(match.group(1)) if match else float('inf')  # Convert episode number to int
 
     # Sorting function: First by episode number, then by resolution priority
     def sort_files(file):
@@ -67,9 +67,9 @@ async def end_sequence(client, message: Message):
                 resolution_rank = priority
                 break  # Stop checking once a match is found
 
-        return (episode_number, resolution_rank)  # Sort first by episode number, then by resolution
+        return (episode_number, resolution_rank)  # Sort by episode first, then by resolution
 
-    # Sort the file list correctly
+    # Sort the file list numerically and by resolution
     file_list.sort(key=sort_files)
 
     await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
@@ -78,10 +78,8 @@ async def end_sequence(client, message: Message):
         await client.send_document(
             message.chat.id, 
             file["file_id"], 
-            caption=f"**{file.get('file_name', '')}**"
+            caption=f"**{file.get('file_name', '')}**", 
         )
-
-
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
