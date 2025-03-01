@@ -19,16 +19,6 @@ renaming_operations = {}
 
 active_sequences = {}
 
-resolution_priority = {
-    "144p": 1,
-    "360p": 2,
-    "480p": 3,
-    "720p": 4,
-    "1080p": 5,
-    "2k": 6,
-    "4k": 7
-}
-
 @Client.on_message(filters.command("ssequence") & filters.private)
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
@@ -56,21 +46,8 @@ async def end_sequence(client, message: Message):
         match = re.search(r'\[S\d+-(\d+)\]', filename)  # Extracts episode number from [S1-XX]
         return int(match.group(1)) if match else float('inf')  # Convert episode number to int
 
-    # Sorting function: First by episode number, then by resolution priority
-    def sort_files(file):
-        filename = file.get("file_name", "").lower()
-        episode_number = extract_ep_number(filename)  # Extract and convert episode number
-
-        resolution_rank = 8  # Default lowest priority
-        for resolution, priority in resolution_priority.items():
-            if resolution in filename:
-                resolution_rank = priority
-                break  # Stop checking once a match is found
-
-        return (episode_number, resolution_rank)  # Sort by episode first, then by resolution
-
-    # Sort the file list numerically and by resolution
-    file_list.sort(key=sort_files)
+    # Sort the file list numerically by episode number
+    file_list.sort(key=lambda file: extract_ep_number(file.get("file_name", "")))
 
     await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
 
@@ -80,6 +57,7 @@ async def end_sequence(client, message: Message):
             file["file_id"], 
             caption=f"**{file.get('file_name', '')}**", 
         )
+        
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
