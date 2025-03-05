@@ -191,20 +191,80 @@ episode_number = extract_episode_number(filename)
 print(f"Extracted Episode Number: {episode_number}")    
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
-async def auto_rename_files(client, message):
+async def auto_rename_files(client, message: Message):
+    user_id = message.from_user.id
+    
+    # Check premium status
+    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    is_premium = user_data.get("is_premium", False)
+    premium_expiry = user_data.get("premium_expiry")
+    
+    if is_premium and premium_expiry:
+        if datetime.now() < premium_expiry:
+            is_premium = True
+        else:
+            await codeflixbots.col.update_one(
+                {"_id": user_id},
+                {"$set": {"is_premium": False, "premium_expiry": None}}
+            )
+            is_premium = False
+
+    if not is_premium:
+        current_tokens = user_data.get("token", 69)
+        if current_tokens <= 0:
+            buttons = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Generate 50 Tokens", callback_data="gen_50")],
+                [InlineKeyboardButton("Generate 100 Tokens (2 Links)", callback_data="gen_100")],
+                [InlineKeyboardButton("Generate 150 Tokens (3 Links)", callback_data="gen_150")]
+            ])
+            await message.reply_text(
+                "❌ You've run out of tokens!\n\n"
+                "Generate more tokens by completing short links:",
+                reply_markup=buttons
+            )
+            return
+
+        # Deduct token
+        new_tokens = current_tokens - 1
+        await codeflixbots.col.update_one(
+            {"_id": user_id},
+            {"$set": {"token": new_tokens}}
+        )
+
+    file_id = message.document.file_id if message.document else message.video.file_id if message.video else message.audio.file_id
+    file_name = message.document.file_name if message.document else message.video.file_name if message.video else message.audio.file_name
+
+    @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
+async def auto_rename_files(client, message: Message):
     user_id = message.from_user.id
     file_id = message.document.file_id if message.document else message.video.file_id if message.video else message.audio.file_id
     file_name = message.document.file_name if message.document else message.video.file_name if message.video else message.audio.file_name
 
     if user_id in active_sequences:
-        # If sequence is active, store the file instead of renaming
         file_info = {
             "file_id": file_id,
             "file_name": file_name if file_name else "Unknown"
         }
         active_sequences[user_id].append(file_info)
         await message.reply_text(f"File received in sequence...")
-        return  # Do not process auto-rename when in sequence mode
+        return
+
+    # Forward original file to dump channel
+    if Config.DUMP_ID:
+        try:
+            await message.forward(Config.DUMP_ID)
+        except Exception as e:
+            await message.reply_text(f"⚠️ Failed to forward to dump channel: {e}")
+            # Proceed with renaming even if dump fails
+
+    # Rest of the auto-rename logic remains the same
+    format_template = await codeflixbots.get_format_template(user_id)
+    media_preference = await codeflixbots.get_media_preference(user_id)
+
+    if not format_template:
+        return await message.reply_text(
+            "Please Set An Auto Rename Format First Using /autorename"
+        )
 
     # Auto-Rename Logic (Runs only when not in sequence mode)
     format_template = await codeflixbots.get_format_template(user_id)
@@ -324,7 +384,10 @@ async def auto_rename_files(client, message):
 
         # Upload the file
         upload_msg = await download_msg.edit("**__Uploading...__**")
-
+        await codeflixbots.col.update_one(
+            {"_id": user_id},
+            {"$inc": {"rename_count": 1}}
+        )
         ph_path = None
         c_caption = await codeflixbots.get_caption(message.chat.id)
         c_thumb = await codeflixbots.get_thumbnail(message.chat.id)
@@ -400,3 +463,43 @@ async def auto_rename_files(client, message):
         if ph_path and os.path.exists(ph_path):
             os.remove(ph_path)
         del renaming_operations[file_id]
+
+@Client.on_callback_query(filters.regex(r"^gen_"))
+async def handle_token_generation(client, callback_query):
+    user_id = callback_query.from_user.id
+    amount = callback_query.data.split("_")[1]
+    
+    amounts = {
+        "50": (50, 1),
+        "100": (100, 2),
+        "150": (150, 3)
+    }
+    
+    if amount not in amounts:
+        await callback_query.answer("Invalid option!")
+        return
+    
+    total_tokens, num_links = amounts[amount]
+    links = []
+    
+    for _ in range(num_links):
+        task_id = generate_task_id()
+        deep_link = f"https://t.me/{client.me.username}?start=task_{task_id}"
+        short_link = await create_short_link(deep_link)
+        
+        if short_link:
+            await codeflixbots.col.update_one(
+                {"_id": user_id},
+                {"$push": {"token_tasks": {"task_id": task_id, "tokens": 50, "completed": False}}},
+                upsert=True
+            )
+            links.append(short_link)
+    
+    if links:
+        links_text = "\n".join([f"{i+1}. {link}" for i, link in enumerate(links)])
+        await callback_query.message.edit_text(
+            f"🔗 Complete these {len(links)} links to get {total_tokens} tokens:\n\n{links_text}",
+            disable_web_page_preview=True
+        )
+    else:
+        await callback_query.message.edit_text("❌ Failed to generate links. Please try again.")
