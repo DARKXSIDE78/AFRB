@@ -8,12 +8,13 @@ from config import *
 from config import Config
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from shortzy import Shortzy
+import aiohttp
+from urllib.parse import quote
 import random
 import string
+import logging
 from datetime import datetime, timedelta
 import pytz
-import logging
 from config import Config
 from helper.database import codeflixbots
 
@@ -241,11 +242,17 @@ async def token_buttons_handler(client, query: CallbackQuery):
         await check_tokens(client, query.message)
 
 async def shorten_url(deep_link: str) -> str:
-    shortzy = Shortzy(api_key=Config.TOKEN_API, base_site=Config.SHORTENER_URL)
+    api_url = f"https://droplink.co/api?api={Config.TOKEN_API}&url={quote(deep_link)}&format=text"
+    
     try:
-        return await shortzy.convert(deep_link)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url, ssl=True) as response:
+                if response.status == 200:
+                    return (await response.text()).strip()
+                logging.error(f"API Error: {response.status}")
+                return None
     except Exception as e:
-        logging.error(f"Shortening error: {e}")
+        logging.error(f"Connection Error: {e}")
         return None
 
 @Client.on_message(filters.command("gentoken") & filters.private)
@@ -259,8 +266,13 @@ async def generate_token(client: Client, message: Message):
     # Create Telegram deep link
     deep_link = f"https://t.me/{Config.BOT_USERNAME}?start={token_id}"
     
-    # Shorten URL
-    short_url = await shorten_url(deep_link)
+    # Shorten URL with retry logic
+    max_retries = 3
+    for attempt in range(max_retries):
+        short_url = await shorten_url(deep_link)
+        if short_url:
+            break
+        await asyncio.sleep(2 ** attempt)  # Exponential backoff
     
     if not short_url:
         return await message.reply("❌ Failed to generate token link. Please try later.")
@@ -270,11 +282,10 @@ async def generate_token(client: Client, message: Message):
     
     await message.reply(
         f"🔑 **Get 100 Tokens**\n\n"
-        f"Click below link and complete verification to claim tokens:\n{short_url}\n\n"
+        f"Click below link and complete verification:\n{short_url}\n\n"
         "⚠️ Link valid for 24 hours | One-time use only",
         disable_web_page_preview=True
     )
-
 
 
 # Start Command Handler
