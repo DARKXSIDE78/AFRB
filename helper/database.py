@@ -220,5 +220,27 @@ class Database:
             logging.error(f"Error getting token for user {user_id}: {e}")
             return 69
 
+    async def create_token_link(self, user_id: int, token_id: str, tokens: int):
+        expiry = datetime.now(pytz.utc) + timedelta(hours=24)
+        return await self.codeflixbots.token_links.update_one(
+            {"_id": token_id},
+            {"$set": {
+                "user_id": user_id,
+                "tokens": tokens,
+                "used": False,
+                "expiry": expiry
+            }},
+            upsert=True
+        )
+
+    async def get_token_link(self, token_id: str):
+        return await self.codeflixbots.token_links.find_one({"_id": token_id})
+
+    async def mark_token_used(self, token_id: str):
+        await self.codeflixbots.token_links.update_one(
+            {"_id": token_id},
+            {"$set": {"used": True}}
+        )
+
 
 codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
