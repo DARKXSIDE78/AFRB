@@ -16,7 +16,7 @@ from helper.database import codeflixbots
 from config import Config
 
 renaming_operations = {}
-
+TOKEN_API = "https://instantearn.in/api?api=fa0dc64a5224ed38ec7b25c70f40922a1f8aeb15&format=text"
 active_sequences = {}
 message_ids = {}
 
