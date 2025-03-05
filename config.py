@@ -7,10 +7,10 @@ class Config(object):
     # pyro client config
     API_ID    = os.environ.get("API_ID", "20604892")
     API_HASH  = os.environ.get("API_HASH", "a75d4dab1a2483a157d93e3ae9bf7500")
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7234740603:AAEJTnn_BevPd4OhJULOCkuXknWhs0Puz_g") 
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7457167517:AAE63LNRcOudPPS_9NElghhifAH2PI3uNP0") 
 
     # database config
-    DB_NAME = os.environ.get("DB_NAME","AutoRenamer")     
+    DB_NAME = os.environ.get("DB_NAME","AutoRenamer2")     
     DB_URL  = os.environ.get("DB_URL","mongodb+srv://nitinkumardhundhara:DARKXSIDE78@cluster0.wdive.mongodb.net/?retryWrites=true&w=majority")
     PORT = os.environ.get("PORT", "8080")
  
@@ -18,9 +18,9 @@ class Config(object):
     BOT_UPTIME  = time.time()
     START_PIC   = os.environ.get("START_PIC", "https://static.vecteezy.com/system/resources/thumbnails/036/095/205/small_2x/ai-generated-beautiful-anime-girl-photo.jpg")
     ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '6302971969 7086472788').split()]
-    FORCE_SUB_CHANNELS = os.environ.get('FORCE_SUB_CHANNELS', '').split(',')
-    LOG_CHANNEL = os.environ.get("LOG_CHANNEL", "@teteetetsss")
-    DUMP_CHANNEL = os.environ.get("DUMP_CHANNEL", "@teteetetsss")
+    FORCE_SUB_CHANNELS = os.environ.get('FORCE_SUB_CHANNELS', '@Bots_Nation').split(',')
+    LOG_CHANNEL = os.environ.get("LOG_CHANNEL", "-1002385922224")
+    DUMP_CHANNEL = os.environ.get("DUMP_CHANNEL", "-1002264269433")
     
     # wes response configuration     
     WEBHOOK = bool(os.environ.get("WEBHOOK", "True"))
