@@ -2,10 +2,236 @@ import random
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-
+from datetime import datetime, timedelta
 from helper.database import codeflixbots
 from config import *
 from config import Config
+
+@Client.on_message(filters.command("leadboard") & filters.user(Config.ADMIN))
+async def show_leaderboard(bot: Client, message: Message):
+    try:
+        users = await codeflixbots.col.find().sort("rename_count", -1).limit(10).to_list(10)
+        leaderboard = ["🏆 **Top 10 Renamers** 🏆\n"]
+        
+        for idx, user in enumerate(users, 1):
+            name = user.get('first_name', 'Unknown')
+            username = f"@{user['username']}" if user.get('username') else "No Username"
+            count = user.get('rename_count', 0)
+            leaderboard.append(f"{idx}) {name} {username} - {count} files")
+        
+        await message.reply_text("\n".join(leaderboard))
+    except Exception as e:
+        await message.reply_text(f"Error generating leaderboard: {e}")
+
+@Client.on_message(filters.command("add_token") & filters.user(Config.ADMIN))
+async def add_tokens(bot: Client, message: Message):
+    try:
+        _, amount, *user_info = message.text.split()
+        user_ref = " ".join(user_info).strip()
+        
+        # Try to get user ID from mention or username
+        if user_ref.startswith("@"):
+            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        new_tokens = int(amount) + user.get('token', 69)
+        await codeflixbots.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {"token": new_tokens}}
+        )
+        await message.reply_text(f"✅ Added {amount} tokens to user {user['_id']}. New balance: {new_tokens}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /add_token <amount> @username/userid")
+
+@Client.on_message(filters.command("remove_token") & filters.user(Config.ADMIN))
+async def remove_tokens(bot: Client, message: Message):
+    try:
+        _, amount, *user_info = message.text.split()
+        user_ref = " ".join(user_info).strip()
+        
+        if user_ref.startswith("@"):
+            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        new_tokens = max(0, user.get('token', 69) - int(amount))
+        await codeflixbots.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {"token": new_tokens}}
+        )
+        await message.reply_text(f"✅ Removed {amount} tokens from user {user['_id']}. New balance: {new_tokens}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /remove_token <amount> @username/userid")
+
+@Client.on_message(filters.command("add_premium") & filters.user(Config.ADMIN))
+async def add_premium(bot: Client, message: Message):
+    try:
+        cmd, user_ref, duration = message.text.split(maxsplit=2)
+        duration = duration.lower()
+        
+        # Get user
+        if user_ref.startswith("@"):
+            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        # Calculate expiration
+        if duration == "lifetime":
+            expiry = datetime(9999, 12, 31)
+        else:
+            num, unit = duration[:-1], duration[-1]
+            unit_map = {
+                'h': 'hours',
+                'd': 'days',
+                'm': 'months',
+                'y': 'years'
+            }
+            delta = timedelta(**{unit_map[unit]: int(num)})
+            expiry = datetime.now() + delta
+        
+        await codeflixbots.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {
+                "is_premium": True,
+                "premium_expiry": expiry
+            }}
+        )
+        await message.reply_text(f"✅ Premium added until {expiry}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /add_premium @username/userid 1d (1h/1m/1y/lifetime)")
+
+@Client.on_message(filters.command("remove_premium") & filters.user(Config.ADMIN))
+async def remove_premium(bot: Client, message: Message):
+    try:
+        _, user_ref = message.text.split(maxsplit=1)
+        
+        if user_ref.startswith("@"):
+            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        await codeflixbots.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {
+                "is_premium": False,
+                "premium_expiry": None
+            }}
+        )
+        await message.reply_text("✅ Premium access removed")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /remove_premium @username/userid")
+
+@Client.on_message(filters.private & filters.command(["token", "mytokens"]))
+async def check_tokens(client, message: Message):
+    user_id = message.from_user.id
+    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    
+    if not user_data:
+        return await message.reply_text("You're not registered yet! Send /start to begin.")
+    
+    # Get premium status
+    is_premium = user_data.get("is_premium", False)
+    premium_expiry = user_data.get("premium_expiry")
+    
+    # Check if premium is expired
+    if is_premium and premium_expiry:
+        if datetime.now() > premium_expiry:
+            is_premium = False
+            await codeflixbots.col.update_one(
+                {"_id": user_id},
+                {"$set": {"is_premium": False, "premium_expiry": None}}
+            )
+
+    # Prepare message
+    token_count = user_data.get("token", 69)
+    msg = [
+        "🔑 **Your Account Status** 🔑",
+        "",
+        f"🏷️ **Premium Status:** {'✅ Active' if is_premium else '❌ Inactive'}"
+    ]
+    
+    if is_premium and premium_expiry:
+        msg.append(f"⏳ **Premium Expiry:** {premium_expiry.strftime('%d %b %Y %H:%M')}")
+    else:
+        msg.extend([
+            f"🪙 **Available Tokens:** {token_count}",
+            "",
+            "1 token = 1 file rename",
+            ""
+        ])
+    
+    # Create buttons
+    buttons = []
+    if not is_premium:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 Generate More Tokens", callback_data="gen_tokens")],
+            [InlineKeyboardButton("💎 Get Premium", callback_data="premium_info")]
+        ])
+    else:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_tokens")]
+        ])
+    
+    await message.reply_text(
+        "\n".join(msg),
+        reply_markup=buttons,
+        disable_web_page_preview=True
+    )
+
+
+# Add this callback handler
+@Client.on_callback_query(filters.regex(r"^(gen_tokens|premium_info|refresh_tokens)$"))
+async def token_buttons_handler(client, query: CallbackQuery):
+    data = query.data
+    user_id = query.from_user.id
+    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    
+    if data == "gen_tokens":
+        # Show token generation options
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("50 Tokens (1 Link)", callback_data="gen_50")],
+            [InlineKeyboardButton("100 Tokens (2 Links)", callback_data="gen_100")],
+            [InlineKeyboardButton("150 Tokens (3 Links)", callback_data="gen_150")],
+            [InlineKeyboardButton("« Back", callback_data="token_back")]
+        ])
+        await query.message.edit_text(
+            "🔗 **Choose Token Package** 🔗\n\n"
+            "Select how many tokens you want to generate:",
+            reply_markup=buttons
+        )
+    
+    elif data == "premium_info":
+        # Show premium information
+        await query.message.edit_text(
+            Txt.PREMIUM_TXT,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Support", url="https://t.me/Bots_Nations_Support")],
+                [InlineKeyboardButton("« Back", callback_data="token_back")]
+            ]),
+            disable_web_page_preview=True
+        )
+    
+    elif data == "refresh_tokens":
+        # Refresh token status
+        await check_tokens(client, query.message)
+        await query.answer("Status refreshed!")
+    
+    elif data == "token_back":
+        # Return to main token status
+        await check_tokens(client, query.message)
 
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
