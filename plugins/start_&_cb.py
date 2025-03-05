@@ -9,6 +9,105 @@ from helper.database import codeflixbots
 from config import *
 from config import Config
 
+@Client.on_message(filters.private & filters.command(["token", "mytokens"]))
+async def check_tokens(client, message: Message):
+    user_id = message.from_user.id
+    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    
+    if not user_data:
+        return await message.reply_text("You're not registered yet! Send /start to begin.")
+    
+    # Get premium status
+    is_premium = user_data.get("is_premium", False)
+    premium_expiry = user_data.get("premium_expiry")
+    
+    # Check if premium is expired
+    if is_premium and premium_expiry:
+        if datetime.now() > premium_expiry:
+            is_premium = False
+            await codeflixbots.col.update_one(
+                {"_id": user_id},
+                {"$set": {"is_premium": False, "premium_expiry": None}}
+            )
+
+    # Prepare message
+    token_count = user_data.get("token", 69)
+    msg = [
+        "🔑 **Your Account Status** 🔑",
+        "",
+        f"🏷️ **Premium Status:** {'✅ Active' if is_premium else '❌ Inactive'}"
+    ]
+    
+    if is_premium and premium_expiry:
+        msg.append(f"⏳ **Premium Expiry:** {premium_expiry.strftime('%d %b %Y %H:%M')}")
+    else:
+        msg.extend([
+            f"🪙 **Available Tokens:** {token_count}",
+            "",
+            "1 token = 1 file rename",
+            ""
+        ])
+    
+    # Create buttons
+    buttons = []
+    if not is_premium:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 Generate More Tokens", callback_data="gen_tokens")],
+            [InlineKeyboardButton("💎 Get Premium", callback_data="premium_info")]
+        ])
+    else:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_tokens")]
+        ])
+    
+    await message.reply_text(
+        "\n".join(msg),
+        reply_markup=buttons,
+        disable_web_page_preview=True
+    )
+
+
+# Add this callback handler
+@Client.on_callback_query(filters.regex(r"^(gen_tokens|premium_info|refresh_tokens)$"))
+async def token_buttons_handler(client, query: CallbackQuery):
+    data = query.data
+    user_id = query.from_user.id
+    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    
+    if data == "gen_tokens":
+        # Show token generation options
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("50 Tokens (1 Link)", callback_data="gen_50")],
+            [InlineKeyboardButton("100 Tokens (2 Links)", callback_data="gen_100")],
+            [InlineKeyboardButton("150 Tokens (3 Links)", callback_data="gen_150")],
+            [InlineKeyboardButton("« Back", callback_data="token_back")]
+        ])
+        await query.message.edit_text(
+            "🔗 **Choose Token Package** 🔗\n\n"
+            "Select how many tokens you want to generate:",
+            reply_markup=buttons
+        )
+    
+    elif data == "premium_info":
+        # Show premium information
+        await query.message.edit_text(
+            Txt.PREMIUM_TXT,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 Buy Premium", url="https://t.me/DARKXSIDE78")],
+                [InlineKeyboardButton("« Back", callback_data="token_back")]
+            ]),
+            disable_web_page_preview=True
+        )
+    
+    elif data == "refresh_tokens":
+        # Refresh token status
+        await check_tokens(client, query.message)
+        await query.answer("Status refreshed!")
+    
+    elif data == "token_back":
+        # Return to main token status
+        await check_tokens(client, query.message)
+
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message: Message):
