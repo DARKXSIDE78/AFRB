@@ -25,6 +25,11 @@ class Database:
             metadata=True,
             metadata_code="Telegram : @DARKXSIDE78",
             format_template=None,
+            rename_count=0,
+            first_name="",
+            username="",
+            is_premium=False,
+            premium_expiry=None,
             token=69,  # Added token field with default value
             ban_status=dict(
                 is_banned=False,
