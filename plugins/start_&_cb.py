@@ -6,6 +6,16 @@ from datetime import datetime, timedelta
 from helper.database import codeflixbots
 from config import *
 from config import Config
+from pyrogram import Client, filters
+from pyrogram.types import Message
+from shortzy import Shortzy
+import random
+import string
+from datetime import datetime, timedelta
+import pytz
+import logging
+from config import Config
+from helper.database import codeflixbots
 
 @Client.on_message(filters.command("leadboard") & filters.user(Config.ADMIN))
 async def show_leaderboard(bot: Client, message: Message):
@@ -230,9 +240,51 @@ async def token_buttons_handler(client, query: CallbackQuery):
         # Return to main token status
         await check_tokens(client, query.message)
 
+async def shorten_url(deep_link: str) -> str:
+    shortzy = Shortzy(api_key=Config.TOKEN_API, base_site=Config.SHORTENER_URL)
+    try:
+        return await shortzy.convert(deep_link)
+    except Exception as e:
+        logging.error(f"Shortening error: {e}")
+        return None
+
+@Client.on_message(filters.command("gentoken") & filters.private)
+async def generate_token(client: Client, message: Message):
+    user_id = message.from_user.id
+    db = codeflixbots
+    
+    # Generate unique token ID
+    token_id = "".join(random.choices(string.ascii_uppercase + string.digits, k=Config.TOKEN_ID_LENGTH))
+    
+    # Create Telegram deep link
+    deep_link = f"https://t.me/{Config.BOT_USERNAME}?start={token_id}"
+    
+    # Shorten URL
+    short_url = await shorten_url(deep_link)
+    
+    if not short_url:
+        return await message.reply("❌ Failed to generate token link. Please try later.")
+    
+    # Save to DB
+    await db.create_token_link(user_id, token_id, 100)
+    
+    await message.reply(
+        f"🔑 **Get 100 Tokens**\n\n"
+        f"Click below link and complete verification to claim tokens:\n{short_url}\n\n"
+        "⚠️ Link valid for 24 hours | One-time use only",
+        disable_web_page_preview=True
+    )
+
+
+
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message: Message):
+    if len(message.command) > 1:
+        token_id = message.command[1]
+        await handle_token_redemption(client, message, token_id)
+        return
+    
     user = message.from_user
     await codeflixbots.add_user(client, message)
 
@@ -396,6 +448,32 @@ async def cb_handler(client, query: CallbackQuery):
         except:
             await query.message.delete()
             await query.message.continue_propagation()
+
+async def handle_token_redemption(client: Client, message: Message, token_id: str):
+    user_id = message.from_user.id
+    db = codeflixbots
+    
+    token_data = await db.get_token_link(token_id)
+    
+    if not token_data:
+        return await message.reply("❌ Invalid or expired token link")
+    
+    if token_data['used']:
+        return await message.reply("❌ This link has already been used")
+        
+    if datetime.now(pytz.utc) > token_data['expiry']:
+        return await message.reply("❌ Token link has expired")
+        
+    if token_data['user_id'] != user_id:
+        return await message.reply("❌ This token link belongs to another user")
+        
+    # Add tokens
+    current_tokens = await db.get_token(user_id)
+    new_tokens = current_tokens + token_data['tokens']
+    await db.set_token(user_id, new_tokens)
+    await db.mark_token_used(token_id)
+    
+    await message.reply(f"✅ Success! {token_data['tokens']} tokens added to your account!")
 
 # Donation Command Handler
 @Client.on_message(filters.command("donate"))
