@@ -1,6 +1,6 @@
 import motor.motor_asyncio, datetime, pytz
 from config import Config
-import logging  # Added for logging errors and important information
+import logging
 from .utils import send_log
 
 
@@ -8,11 +8,11 @@ class Database:
     def __init__(self, uri, database_name):
         try:
             self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
-            self._client.server_info()  # This will raise an exception if the connection fails
+            self._client.server_info()
             logging.info("Successfully connected to MongoDB")
         except Exception as e:
             logging.error(f"Failed to connect to MongoDB: {e}")
-            raise e  # Re-raise the exception after logging it
+            raise e
         self.codeflixbots = self._client[database_name]
         self.col = self.codeflixbots.user
 
@@ -25,6 +25,7 @@ class Database:
             metadata=True,
             metadata_code="Telegram : @DARKXSIDE78",
             format_template=None,
+            token=69,  # Added token field with default value
             ban_status=dict(
                 is_banned=False,
                 ban_duration=0,
@@ -195,6 +196,23 @@ class Database:
 
     async def set_custom_tag(self, user_id, custom_tag):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
+
+    async def set_token(self, user_id, token):
+        try:
+            await self.col.update_one(
+                {"_id": int(user_id)}, 
+                {"$set": {"token": token}}
+            )
+        except Exception as e:
+            logging.error(f"Error setting token for user {user_id}: {e}")
+
+    async def get_token(self, user_id):
+        try:
+            user = await self.col.find_one({"_id": int(user_id)})
+            return user.get("token", 69) if user else 69
+        except Exception as e:
+            logging.error(f"Error getting token for user {user_id}: {e}")
+            return 69
 
 
 codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
