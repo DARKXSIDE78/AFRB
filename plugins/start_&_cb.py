@@ -10,13 +10,9 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import aiohttp
 from urllib.parse import quote
-import random
 import string
 import logging
-from datetime import datetime, timedelta
 import pytz
-from config import Config
-from helper.database import codeflixbots
 
 @Client.on_message(filters.command("leadboard") & filters.user(Config.ADMIN))
 async def show_leaderboard(bot: Client, message: Message):
