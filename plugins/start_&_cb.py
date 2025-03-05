@@ -201,16 +201,13 @@ async def token_buttons_handler(client, query: CallbackQuery):
     
     if data == "gen_tokens":
         # Show token generation options
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("50 Tokens (1 Link)", callback_data="gen_50")],
-            [InlineKeyboardButton("100 Tokens (2 Links)", callback_data="gen_100")],
-            [InlineKeyboardButton("150 Tokens (3 Links)", callback_data="gen_150")],
-            [InlineKeyboardButton("« Back", callback_data="token_back")]
-        ])
         await query.message.edit_text(
-            "🔗 **Choose Token Package** 🔗\n\n"
-            "Select how many tokens you want to generate:",
-            reply_markup=buttons
+            "🔗 **You can generate tokens using /gentoken** 🔗",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Support", url="https://t.me/Bots_Nations_Support")],
+                [InlineKeyboardButton("« Back", callback_data="token_back")]
+            ]),
+            disable_web_page_preview=True
         )
     
     elif data == "premium_info":
