@@ -2,7 +2,9 @@ import random
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-
+import random
+import string
+import aiohttp
 from helper.database import codeflixbots
 from config import *
 from config import Config
@@ -10,6 +12,27 @@ from config import Config
 # Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message: Message):
+    # Handle token redemption first
+    if len(message.command) > 1 and message.command[1].startswith("task_"):
+        task_id = message.command[1].split("_")[1]
+        user_id = message.from_user.id
+        
+        user_data = await codeflixbots.col.find_one(
+            {"_id": user_id, "token_tasks.task_id": task_id},
+            {"token_tasks.$": 1}
+        )
+        
+        if user_data and not user_data["token_tasks"][0]["completed"]:
+            await codeflixbots.col.update_one(
+                {"_id": user_id, "token_tasks.task_id": task_id},
+                {"$set": {"token_tasks.$.completed": True},
+                 "$inc": {"token": 50}}
+            )
+            await message.reply_text("✅ 50 tokens added to your account!")
+        else:
+            await message.reply_text("❌ Invalid or expired task ID")
+        return
+        
     user = message.from_user
     await codeflixbots.add_user(client, message)
 
@@ -243,3 +266,16 @@ async def help_command(client, message):
             [InlineKeyboardButton('• ʜᴏᴍᴇ', callback_data='home')]
         ])
     )
+
+def generate_task_id(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+async def create_short_link(destination):
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"{Config.TOKEN_API}&url={destination}"
+            async with session.get(url) as response:
+                return await response.text()
+    except Exception as e:
+        print(f"Error creating short link: {e}")
+        return None
