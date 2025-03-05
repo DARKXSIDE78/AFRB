@@ -28,6 +28,7 @@ class Database:
             rename_count=0,
             first_name="",
             username="",
+            token_tasks=[],
             is_premium=False,
             premium_expiry=None,
             token=69,  # Added token field with default value
