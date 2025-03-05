@@ -7,10 +7,10 @@ class Config(object):
     # pyro client config
     API_ID    = os.environ.get("API_ID", "20604892")
     API_HASH  = os.environ.get("API_HASH", "a75d4dab1a2483a157d93e3ae9bf7500")
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7457167517:AAE63LNRcOudPPS_9NElghhifAH2PI3uNP0") 
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7052382347:AAE8JaBHoK2acDxBkWNBvKj4vqT0XmWQX98") 
 
     # database config
-    DB_NAME = os.environ.get("DB_NAME","AutoRenamer2")     
+    DB_NAME = os.environ.get("DB_NAME","AutoRenamerBot")     
     DB_URL  = os.environ.get("DB_URL","mongodb+srv://nitinkumardhundhara:DARKXSIDE78@cluster0.wdive.mongodb.net/?retryWrites=true&w=majority")
     PORT = os.environ.get("PORT", "8080")
  
