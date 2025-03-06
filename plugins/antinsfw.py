@@ -23,7 +23,7 @@ nsfw_keywords = {
         "lewd anime", "lewd manga", "animated porn", "animated sex", "hentai game", "hentai art",
         "hentai drawing", "hentai doujin", "yaoi hentai", "hentai comic",
         "hentai picture", "hentai scene", "hentai story", "hentai video", "hentai movie",
-        "hentai episode", "hentai series"
+        "hentai episode", "hentai series", "stepmom"
     ],
     "abbreviations": [
         "pr0n", "s3x", "n00d", "fck", "bj", "hj", "l33t", "p0rn", "h3ntai", "h-ntai", "pnwh",
