@@ -14,22 +14,6 @@ import string
 import logging
 import pytz
 
-@Client.on_message(filters.command("leadboard") & filters.user(Config.ADMIN))
-async def show_leaderboard(bot: Client, message: Message):
-    try:
-        users = await codeflixbots.col.find().sort("rename_count", -1).limit(10).to_list(10)
-        leaderboard = ["🏆 **Top 10 Renamers** 🏆\n"]
-        
-        for idx, user in enumerate(users, 1):
-            name = user.get('first_name', 'Unknown')
-            username = f"@{user['username']}" if user.get('username') else "No Username"
-            count = user.get('rename_count', 0)
-            leaderboard.append(f"{idx}) {name} {username} - {count} files")
-        
-        await message.reply_text("\n".join(leaderboard))
-    except Exception as e:
-        await message.reply_text(f"Error generating leaderboard: {e}")
-
 @Client.on_message(filters.command("add_token") & filters.user(Config.ADMIN))
 async def add_tokens(bot: Client, message: Message):
     try:
@@ -141,7 +125,7 @@ async def remove_premium(bot: Client, message: Message):
     except Exception as e:
         await message.reply_text(f"Error: {e}\nUsage: /remove_premium @username/userid")
 
-@Client.on_message(filters.private & filters.command(["token", "mytokens"]))
+@Client.on_message(filters.private & filters.command(["token", "mytokens", "bal"]))
 async def check_tokens(client, message: Message):
     user_id = message.from_user.id
     user_data = await codeflixbots.col.find_one({"_id": user_id})
@@ -237,19 +221,9 @@ async def token_buttons_handler(client, query: CallbackQuery):
         # Return to main token status
         await check_tokens(client, query.message)
 
-async def shorten_url(deep_link: str) -> str:
-    api_url = f"https://droplink.co/api?api={Config.TOKEN_API}&url={quote(deep_link)}&format=text"
-    
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, ssl=True) as response:
-                if response.status == 200:
-                    return (await response.text()).strip()
-                logging.error(f"API Error: {response.status}")
-                return None
-    except Exception as e:
-        logging.error(f"Connection Error: {e}")
-        return None
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 @Client.on_message(filters.command("gentoken") & filters.private)
 async def generate_token(client: Client, message: Message):
@@ -263,17 +237,12 @@ async def generate_token(client: Client, message: Message):
     deep_link = f"https://t.me/{Config.BOT_USERNAME}?start={token_id}"
     
     # Shorten URL with retry logic
-    max_retries = 3
-    for attempt in range(max_retries):
-        short_url = await shorten_url(deep_link)
-        if short_url:
-            break
-        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+    short_url = await shorten_url(deep_link)
     
     if not short_url:
         return await message.reply("❌ Failed to generate token link. Please try later.")
     
-    # Save to DB
+    # Save token link to DB
     await db.create_token_link(user_id, token_id, 100)
     
     await message.reply(
@@ -283,8 +252,43 @@ async def generate_token(client: Client, message: Message):
         disable_web_page_preview=True
     )
 
+async def handle_token_redemption(client: Client, message: Message, token_id: str):
+    user_id = message.from_user.id
+    
+    try:
+        # Retrieve token data from the database
+        token_data = await codeflixbots.get_token_link(token_id)
+        
+        if not token_data:
+            return await message.reply("❌ Invalid or expired token link")
+        
+        if token_data['used']:
+            return await message.reply("❌ This link has already been used")
+        
+        # Convert stored naive datetime to UTC-aware datetime
+        expiry_utc = token_data['expiry'].replace(tzinfo=pytz.UTC)
+        
+        if datetime.now(pytz.UTC) > expiry_utc:
+            return await message.reply("❌ Token expired")
+        
+        if token_data['user_id'] != user_id:
+            return await message.reply("❌ This token link belongs to another user")
+        
+        # Atomic update of tokens in the database using update_one
+        await codeflixbots.col.update_one(
+            {"_id": user_id},
+            {"$inc": {"token": token_data['tokens']}}
+        )
+        
+        # Mark the token as used
+        await codeflixbots.mark_token_used(token_id)
+        
+        await message.reply(f"✅ Success! {token_data['tokens']} tokens added to your account!")
+    
+    except Exception as e:
+        logging.error(f"Error during token redemption: {e}")
+        await message.reply("❌ An error occurred while processing your request. Please try again.")
 
-# Start Command Handler
 @Client.on_message(filters.private & filters.command("start"))
 async def start(client, message: Message):
     if len(message.command) > 1:
@@ -338,6 +342,23 @@ async def start(client, message: Message):
             disable_web_page_preview=True
         )
 
+# Shorten URL function with retry logic and fallback mechanism
+async def shorten_url(deep_link: str) -> str:
+    api_url = f"https://droplink.co/api?api={Config.TOKEN_API}&url={quote(deep_link)}&format=text"
+    try:
+        async with aiohttp.ClientSession() as session:
+            max_retries = 3
+            for attempt in range(max_retries):
+                async with session.get(api_url, ssl=True) as response:
+                    if response.status == 200:
+                        return (await response.text()).strip()
+                    logging.error(f"API Error: {response.status}")
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+    except Exception as e:
+        logging.error(f"Connection Error: {e}")
+    # Fallback to original deep link if API fails
+    logging.warning("Shorten URL API failed. Using original deep link.")
+    return deep_link
 
 # Callback Query Handler
 @Client.on_callback_query()
@@ -455,32 +476,6 @@ async def cb_handler(client, query: CallbackQuery):
         except:
             await query.message.delete()
             await query.message.continue_propagation()
-
-async def handle_token_redemption(client: Client, message: Message, token_id: str):
-    user_id = message.from_user.id
-    db = codeflixbots
-    
-    token_data = await db.get_token_link(token_id)
-    
-    if not token_data:
-        return await message.reply("❌ Invalid or expired token link")
-    
-    if token_data['used']:
-        return await message.reply("❌ This link has already been used")
-        
-    if datetime.now(pytz.utc) > token_data['expiry']:
-        return await message.reply("❌ Token link has expired")
-        
-    if token_data['user_id'] != user_id:
-        return await message.reply("❌ This token link belongs to another user")
-        
-    # Add tokens
-    current_tokens = await db.get_token(user_id)
-    new_tokens = current_tokens + token_data['tokens']
-    await db.set_token(user_id, new_tokens)
-    await db.mark_token_used(token_id)
-    
-    await message.reply(f"✅ Success! {token_data['tokens']} tokens added to your account!")
 
 # Donation Command Handler
 @Client.on_message(filters.command("donate"))
