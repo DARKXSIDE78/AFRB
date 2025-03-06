@@ -1,10 +1,8 @@
-import motor.motor_asyncio, datetime, pytz
+import motor.motor_asyncio
+import datetime
+import pytz
 from config import Config
 import logging
-from .utils import send_log
-from datetimer import datetime, timedelta
-
-
 
 class Database:
     def __init__(self, uri, database_name):
@@ -17,11 +15,12 @@ class Database:
             raise e
         self.codeflixbots = self._client[database_name]
         self.col = self.codeflixbots.user
+        self.token_links = self.codeflixbots.token_links  # Token links collection
 
     def new_user(self, id):
         return dict(
             _id=int(id),
-            join_date=datetime.date.today().isoformat(),
+            join_date=datetime.datetime.now(pytz.utc).date().isoformat(),
             file_id=None,
             caption=None,
             metadata=True,
@@ -33,11 +32,11 @@ class Database:
             token_tasks=[],
             is_premium=False,
             premium_expiry=None,
-            token=69,  # Added token field with default value
+            token=69,  # Default token value
             ban_status=dict(
                 is_banned=False,
                 ban_duration=0,
-                banned_on=datetime.date.max.isoformat(),
+                banned_on=datetime.datetime.max.date().isoformat(),
                 ban_reason=''
             )
         )
@@ -46,11 +45,12 @@ class Database:
         u = m.from_user
         if not await self.is_user_exist(u.id):
             user = self.new_user(u.id)
+            # Add user's actual information
+            user["first_name"] = u.first_name or "Unknown"
+            user["username"] = u.username or ""
             try:
                 await self.col.insert_one(user)
-                await send_log(b, u)
-            except Exception as e:
-                logging.error(f"Error adding user {u.id}: {e}")
+                logging.info(f"User {u.id} added to database")
 
     async def is_user_exist(self, id):
         try:
@@ -126,91 +126,50 @@ class Database:
             logging.error(f"Error getting format template for user {id}: {e}")
             return None
 
-    async def set_media_preference(self, id, media_type):
+    async def create_token_link(self, user_id: int, token_id: str, tokens: int):
+        expiry = datetime.datetime.now(pytz.utc) + datetime.timedelta(hours=24)
         try:
-            await self.col.update_one(
-                {"_id": int(id)}, {"$set": {"media_type": media_type}}
+            await self.token_links.update_one(
+                {"_id": token_id},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "tokens": tokens,
+                        "used": False,
+                        "expiry": expiry
+                    }
+                },
+                upsert=True
             )
+            logging.info(f"Token link created for user {user_id} with token ID {token_id}.")
         except Exception as e:
-            logging.error(f"Error setting media preference for user {id}: {e}")
+            logging.error(f"Error creating token link: {e}")
 
-    async def get_media_preference(self, id):
+    async def get_token_link(self, token_id: str):
         try:
-            user = await self.col.find_one({"_id": int(id)})
-            return user.get("media_type", None) if user else None
+            token_data = await self.token_links.find_one({"_id": token_id})
+            return token_data
         except Exception as e:
-            logging.error(f"Error getting media preference for user {id}: {e}")
+            logging.error(f"Error fetching token link for token ID {token_id}: {e}")
             return None
 
-    async def get_metadata(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('metadata', "Off")
-
-    async def set_metadata(self, user_id, metadata):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'metadata': metadata}})
-
-    async def get_title(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('title', 'GenAnimeOfc [t.me/GenAnimeOfc]')
-
-    async def set_title(self, user_id, title):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'title': title}})
-
-    async def get_author(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('author', 'DARKXSIDE78')
-
-    async def set_author(self, user_id, author):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'author': author}})
-
-    async def get_artist(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('artist', 'DARKXSIDE78')
-
-    async def set_artist(self, user_id, artist):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'artist': artist}})
-
-    async def get_audio(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('audio', '[GenAnimeOfc]')
-
-    async def set_audio(self, user_id, audio):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'audio': audio}})
-
-    async def get_subtitle(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('subtitle', "[GenAnimeOfc]")
-
-    async def set_subtitle(self, user_id, subtitle):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'subtitle': subtitle}})
-
-    async def get_video(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('video', '[GenAnimeOfc]')
-
-    async def set_video(self, user_id, video):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'video': video}})
-
-    async def get_encoded_by(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('encoded_by', "GenAnimeOfc [DARKXSIDE78]")
-
-    async def set_encoded_by(self, user_id, encoded_by):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'encoded_by': encoded_by}})
-        
-    async def get_custom_tag(self, user_id):
-        user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('customtag', "[GenAnimeOfc]")
-
-    async def set_custom_tag(self, user_id, custom_tag):
-        await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
+    async def mark_token_used(self, token_id: str):
+        try:
+            await self.token_links.update_one(
+                {"_id": token_id},
+                {"$set": {"used": True}}
+            )
+            logging.info(f"Token {token_id} marked as used.")
+        except Exception as e:
+            logging.error(f"Error marking token as used: {e}")
 
     async def set_token(self, user_id, token):
         try:
             await self.col.update_one(
-                {"_id": int(user_id)}, 
+                {"_id": int(user_id)},
                 {"$set": {"token": token}}
             )
+            logging.info(f"Token updated for user {user_id}.")
         except Exception as e:
             logging.error(f"Error setting token for user {user_id}: {e}")
 
@@ -221,28 +180,5 @@ class Database:
         except Exception as e:
             logging.error(f"Error getting token for user {user_id}: {e}")
             return 69
-
-    async def create_token_link(self, user_id: int, token_id: str, tokens: int):
-        expiry = datetime.now(pytz.utc) + timedelta(hours=24)
-        return await self.codeflixbots.token_links.update_one(
-            {"_id": token_id},
-            {"$set": {
-                "user_id": user_id,
-                "tokens": tokens,
-                "used": False,
-                "expiry": expiry
-            }},
-            upsert=True
-        )
-
-    async def get_token_link(self, token_id: str):
-        return await self.codeflixbots.token_links.find_one({"_id": token_id})
-
-    async def mark_token_used(self, token_id: str):
-        await self.codeflixbots.token_links.update_one(
-            {"_id": token_id},
-            {"$set": {"used": True}}
-        )
-
 
 codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
