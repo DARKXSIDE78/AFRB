@@ -32,20 +32,16 @@ QUEUE = []
 MAX_ACTIVE = 20
 MAX_QUEUE = 5  # 20 active + 5 in queue = 25 total
 
-async def queue_processor():
+async def queue_processor(bot: Client):
     while True:
         async with QUEUE_LOCK:
             if ACTIVE_USERS and len(ACTIVE_USERS) < MAX_ACTIVE and QUEUE:
-                # Get next user from queue
                 user_id = QUEUE.pop(0)
                 ACTIVE_USERS.add(user_id)
-                
-                # Notify user
-                await app.send_message(
+                await bot.send_message(
                     user_id,
                     f"🚀 Your turn has come! You can now process files."
                 )
-        
         await asyncio.sleep(1)
 
 # Function to detect video quality from filename
@@ -547,7 +543,3 @@ async def check_queue(client, message):
         f"• Queue length: {len(QUEUE)}/{MAX_QUEUE}\n"
         f"• Your status: {status}"
     )
-
-@Client.on_startup()
-async def startup():
-    asyncio.create_task(queue_processor())
