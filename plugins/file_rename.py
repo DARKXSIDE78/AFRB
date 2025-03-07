@@ -26,6 +26,28 @@ renaming_operations = {}
 active_sequences = {}
 message_ids = {}
 
+QUEUE_LOCK = asyncio.Lock()
+ACTIVE_USERS = set()
+QUEUE = []
+MAX_ACTIVE = 20
+MAX_QUEUE = 5  # 20 active + 5 in queue = 25 total
+
+async def queue_processor():
+    while True:
+        async with QUEUE_LOCK:
+            if ACTIVE_USERS and len(ACTIVE_USERS) < MAX_ACTIVE and QUEUE:
+                # Get next user from queue
+                user_id = QUEUE.pop(0)
+                ACTIVE_USERS.add(user_id)
+                
+                # Notify user
+                await app.send_message(
+                    user_id,
+                    f"🚀 Your turn has come! You can now process files."
+                )
+        
+        await asyncio.sleep(1)
+
 # Function to detect video quality from filename
 def detect_quality(file_name):
     quality_order = {"480p": 1, "720p": 2, "1080p": 3}
@@ -198,16 +220,47 @@ print(f"Extracted Episode Number: {episode_number}")
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message: Message):
-    user_id = message.from_user.id
+    user = message.from_user
+    user_id = user.id
     
-    # Check premium status
+    async with QUEUE_LOCK:
+        # Check queue status
+        if len(ACTIVE_USERS) >= MAX_ACTIVE + MAX_QUEUE:
+            await message.reply("❌ Queue full. Please try again later.")
+            return
+            
+        if user_id in ACTIVE_USERS:
+            # User is already processing
+            return await message.reply("⏳ You're already processing files!")
+
+        if len(ACTIVE_USERS) >= MAX_ACTIVE:
+            # Add to queue
+            if user_id not in QUEUE:
+                QUEUE.append(user_id)
+                position = len(QUEUE)
+                await message.reply(
+                    f"📥 Added to queue. Position: {position}\n"
+                    f"Estimated wait time: {position * 2} minutes"
+                )
+            return
+
+        # Start processing immediately
+        ACTIVE_USERS.add(user_id)
+
+    try:
     user_data = await codeflixbots.col.find_one({"_id": user_id})
     is_premium = user_data.get("is_premium", False)
     premium_expiry = user_data.get("premium_expiry")
     
+    
     if is_premium and premium_expiry:
         if datetime.now() < premium_expiry:
             is_premium = True
+        async with QUEUE_LOCK:
+            if user_id in QUEUE:
+                QUEUE.remove(user_id)
+                QUEUE.insert(0, user_id)
+                await message.reply("⭐ Premium priority: Moved to front of queue!")
         else:
             await codeflixbots.col.update_one(
                 {"_id": user_id},
@@ -246,9 +299,38 @@ async def auto_rename_files(client, message: Message):
     # Forward original file to dump channel
     if Config.DUMP_CHANNEL:
         try:
-            await message.forward(Config.DUMP_CHANNEL)
+            # Forward original file first
+            forwarded_msg = await message.forward(Config.DUMP_CHANNEL)
+            
+            # Prepare user details message
+            timestamp = datetime.now(pytz.timezone("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M:%S %Z')
+            user_details = (
+                f"👤 **User Details**\n"
+                f"• ID: `{user.id}`\n"
+                f"• Name: {user.first_name or 'Unknown'}\n"
+                f"• Username: @{user.username}\n"
+                f"• Premium: {'✅' if is_premium else '❌'}\n"
+                f"⏰ Time: `{timestamp}`\n"
+                f"📄 Original Filename: `{file_name}`\n"
+                f"🔄 Renamed Filename: `{renamed_file_name}`\n"
+            )
+            
+            # Check if message is forwarded
+            forward_info = ""
+            if message.forward_from:
+                forward_info = f"🔀 Forwarded from: @{message.forward_from.username} ({message.forward_from.id})"
+            elif message.forward_sender_name:
+                forward_info = f"🔀 Forwarded from hidden user: {message.forward_sender_name}"
+            
+            # Send details to dump channel
+            await client.send_message(
+                Config.DUMP_CHANNEL,
+                f"{user_details}\n{forward_info}",
+                reply_to_message_id=forwarded_msg.message_id
+            )
+
         except Exception as e:
-            await message.reply_text(f"⚠️ Failed to forward to dump channel: {e}")
+            await message.reply_text(f"⚠️ Failed to log to dump channel: {e}")
 
     # Auto-Rename Logic (Runs only when not in sequence mode)
     format_template = await codeflixbots.get_format_template(user_id)
@@ -441,11 +523,31 @@ async def auto_rename_files(client, message: Message):
             os.remove(ph_path)
 
     finally:
-        # Clean up
-        if os.path.exists(renamed_file_path):
-            os.remove(renamed_file_path)
-        if os.path.exists(metadata_file_path):
-            os.remove(metadata_file_path)
-        if ph_path and os.path.exists(ph_path):
-            os.remove(ph_path)
-        del renaming_operations[file_id]
+        async with QUEUE_LOCK:
+            if user_id in ACTIVE_USERS:
+                ACTIVE_USERS.remove(user_id)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+@Client.on_message(filters.command("queue"))
+async def check_queue(client, message):
+    user_id = message.from_user.id
+    async with QUEUE_LOCK:
+        if user_id in ACTIVE_USERS:
+            status = "✅ Active (processing files)"
+        elif user_id in QUEUE:
+            position = QUEUE.index(user_id) + 1
+            status = f"📥 Queued (position {position})"
+        else:
+            status = "❌ Not in queue"
+            
+    await message.reply(
+        f"📊 System Status\n\n"
+        f"• Active users: {len(ACTIVE_USERS)}/{MAX_ACTIVE}\n"
+        f"• Queue length: {len(QUEUE)}/{MAX_QUEUE}\n"
+        f"• Your status: {status}"
+    )
+
+@Client.on_startup()
+async def startup():
+    asyncio.create_task(queue_processor())
