@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from pytz import timezone
 from pyrogram import Client, __version__
 from pyrogram.raw.all import layer
-from plugins.file_rename import queue_processor
 from config import Config
 from aiohttp import web
 from route import web_server
@@ -32,7 +31,6 @@ class Bot(Client):
         )
         # Initialize the bot's start time for uptime calculation
         self.start_time = time.time()
-        self.queue_task = None
 
     async def start(self):
         await super().start()
@@ -40,7 +38,6 @@ class Bot(Client):
         self.mention = me.mention
         self.username = me.username  
         self.uptime = Config.BOT_UPTIME  
-        self.queue_task = asyncio.create_task(queue_processor(self))
         if Config.WEBHOOK:
             app = web.AppRunner(await web_server())
             await app.setup()       
