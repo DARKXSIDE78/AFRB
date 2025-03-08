@@ -20,7 +20,7 @@ class Config(object):
     ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '6302971969 7086472788 6039119180 1136967391').split()]
     FORCE_SUB_CHANNELS = os.environ.get('FORCE_SUB_CHANNELS', 'Bots_Nation, Bots_Nation_Support').split(', ')
     LOG_CHANNEL = os.environ.get("LOG_CHANNEL", "-1002385922224")
-    DUMP_CHANNEL = os.environ.get("DUMP_CHANNEL", "-1002264269433")
+    DUMP_CHANNEL = os.environ.get("DUMP_CHANNEL", "-1002277917960")
     BOT_USERNAME = os.environ.get("BOT_USERNAME", "AutoRenamerXBOt")
     #TOKEN_API = "https://instantearn.in/api?api=fa0dc64a5224ed38ec7b25c70f40922a1f8aeb15&format=text"
     TOKEN_API = "533ce3f92f47b35345541ac59f7010de31fbeba7"
