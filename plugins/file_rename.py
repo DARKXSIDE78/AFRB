@@ -263,8 +263,14 @@ async def auto_rename_files(client, message: Message):
         # Forward original file to dump channel
         if Config.DUMP_CHANNEL:
             try:
-                # Forward original file first
+                user = message.from_user
                 forwarded_msg = await message.forward(Config.DUMP_CHANNEL)
+
+                if not user:
+                    raise ValueError("User information is missing.")
+
+                if not message.document:
+                    raise ValueError("No document found in the message.")
             
                 # Prepare user details message
                 timestamp = datetime.now(pytz.timezone("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M:%S %Z')
