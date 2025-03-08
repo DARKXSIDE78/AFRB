@@ -455,9 +455,11 @@ async def auto_rename_files(client, message: Message):
                             f"🔄 Renamed Filename: `{renamed_file_name}`\n"
                         )
 
-                        # Forward the user's sent message to dump channel
-                        await user_sent_message.forward(
-                            Config.DUMP_CHANNEL,
+                        # Use copy_message to forward with a custom caption
+                        await client.copy_message(
+                            chat_id=Config.DUMP_CHANNEL,
+                            from_chat_id=message.chat.id,
+                            message_id=user_sent_message.id,
                             caption=user_details
                         )
 
