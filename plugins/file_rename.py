@@ -206,9 +206,11 @@ async def auto_rename_files(client, message: Message):
     is_admin = False
     if hasattr(Config, "ADMINS") and user_id in Config.ADMINS:
         is_admin = True
+
+    
     
     # Check premium status
-    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    user_data = await codeflixbots.col.find_one({"_id": int(user_id)})  
     is_premium = user_data.get("is_premium", False) if user_data else False
     premium_expiry = user_data.get("premium_expiry")
     if is_premium and premium_expiry:
