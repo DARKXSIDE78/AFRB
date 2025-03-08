@@ -480,6 +480,9 @@ async def auto_rename_files(client, message: Message):
                 logging.error(f"Error Upload file: {e}")
 
             await download_msg.delete() 
+            os.remove(file_path)
+            if ph_path:
+                os.remove(ph_path)
 
         finally:
             # Clean up
