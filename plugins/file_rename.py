@@ -209,7 +209,7 @@ async def auto_rename_files(client, message: Message):
     
     # Check premium status
     user_data = await codeflixbots.col.find_one({"_id": user_id})
-    is_premium = user_data.get("is_premium", False)
+    is_premium = user_data.get("is_premium", False) if user_data else False
     premium_expiry = user_data.get("premium_expiry")
     if is_premium and premium_expiry:
         if datetime.now() < premium_expiry:
