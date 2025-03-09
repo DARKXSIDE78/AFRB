@@ -32,6 +32,23 @@ class Bot(Client):
         # Initialize the bot's start time for uptime calculation
         self.start_time = time.time()
 
+    async def ping_service(self):
+        """Send a ping request to the service to keep it awake."""
+        while True:
+            try:
+                # Send a request to the web server to keep it alive
+                async with aiohttp.ClientSession() as session:
+                    async with session.get("https://afrb-ecvm.onrender.com") as response:
+                        if response.status == 200:
+                            print("Ping successful")
+                        else:
+                            print("Ping failed with status:", response.status)
+            except Exception as e:
+                print("Error while pinging:", e)
+
+            # Wait for 5 minutes before sending the next ping
+            await asyncio.sleep(300)  # 300 seconds = 5 minutes
+
     async def start(self):
         await super().start()
         me = await self.get_me()
@@ -58,7 +75,7 @@ class Bot(Client):
                 await self.send_photo(
                     chat_id=chat_id,
                     photo=Config.START_PIC,
-                    caption=(
+                    caption=( 
                         "**ᴀɴʏᴀ ɪs ʀᴇsᴛᴀʀᴛᴇᴅ ᴀɢᴀɪɴ  !**\n\n"
                         f"ɪ ᴅɪᴅɴ'ᴛ sʟᴇᴘᴛ sɪɴᴄᴇ​: `{uptime_string}`"
                     ),
@@ -71,5 +88,8 @@ class Bot(Client):
 
             except Exception as e:
                 print(f"Failed to send message in chat {chat_id}: {e}")
+
+        # Start the ping service in the background
+        asyncio.create_task(self.ping_service())  # Run the pinging task
 
 Bot().run()
