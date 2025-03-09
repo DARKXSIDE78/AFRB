@@ -10,7 +10,7 @@ class Config(object):
     BOT_TOKEN = os.environ.get("BOT_TOKEN", "7234740603:AAEJTnn_BevPd4OhJULOCkuXknWhs0Puz_g") 
 
     # database config
-    DB_NAME = os.environ.get("DB_NAME","AutoRenamerBot")     
+    DB_NAME = os.environ.get("DB_NAME","AutoRenamer")     
     DB_URL  = os.environ.get("DB_URL","mongodb+srv://nitinkumardhundhara:DARKXSIDE78@cluster0.wdive.mongodb.net/?retryWrites=true&w=majority")
     PORT = os.environ.get("PORT", "8080")
  
