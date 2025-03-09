@@ -7,7 +7,7 @@ class Config(object):
     # pyro client config
     API_ID    = os.environ.get("API_ID", "20604892")
     API_HASH  = os.environ.get("API_HASH", "a75d4dab1a2483a157d93e3ae9bf7500")
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7052382347:AAE8JaBHoK2acDxBkWNBvKj4vqT0XmWQX98") 
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7234740603:AAEJTnn_BevPd4OhJULOCkuXknWhs0Puz_g") 
 
     # database config
     DB_NAME = os.environ.get("DB_NAME","AutoRenamerBot")     
