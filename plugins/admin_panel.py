@@ -1,10 +1,12 @@
 from config import Config, Txt
-from helper.database import codeflixbots
+from helper.database import DARKXSIDE78
 from pyrogram.types import Message
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 import os, sys, time, asyncio, logging, datetime
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from datetime import datetime, timedelta
+import pytz  # If using timezones
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -27,11 +29,143 @@ async def restart_bot(b, m):
         # Restart the bot process
         os.execl(sys.executable, sys.executable, *sys.argv)
 
+@Client.on_message(filters.private & filters.command("leaderboard"))
+#@Client.on_message(filters.command("leaderboard") & filters.user(Config.ADMIN))
+async def show_leaderboard(bot: Client, message: Message):
+    try:
+        users = await DARKXSIDE78.col.find().sort("rename_count", -1).limit(10).to_list(10)
+        leaderboard = ["<b>🏆 Top 10 Renamers 🏆</b>\n"]
+        
+        for idx, user in enumerate(users, 1):
+            name = user.get('first_name', 'Unknown').strip() or "Anonymous"
+            username = f"@{user['username']}" if user.get('username') else "No UN"
+            count = user.get('rename_count', 0)
+            leaderboard.append(
+                f"<b>{idx}.</b> {name} "
+                f"<i>({username})</i> ➠ "
+                f"<code>{count}</code> ✨"
+            )
+        
+        await message.reply_text("\n".join(leaderboard))
+    except Exception as e:
+        await message.reply_text(f"Error generating leaderboard: {e}")
+
+@Client.on_message(filters.command("add_token") & filters.user(Config.ADMIN))
+async def add_tokens(bot: Client, message: Message):
+    try:
+        _, amount, *user_info = message.text.split()
+        user_ref = " ".join(user_info).strip()
+        
+        # Try to get user ID from mention or username
+        if user_ref.startswith("@"):
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        new_tokens = int(amount) + user.get('token', 69)
+        await DARKXSIDE78.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {"token": new_tokens}}
+        )
+        await message.reply_text(f"✅ Added {amount} tokens to user {user['_id']}. New balance: {new_tokens}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /add_token <amount> @username/userid")
+
+@Client.on_message(filters.command("remove_token") & filters.user(Config.ADMIN))
+async def remove_tokens(bot: Client, message: Message):
+    try:
+        _, amount, *user_info = message.text.split()
+        user_ref = " ".join(user_info).strip()
+        
+        if user_ref.startswith("@"):
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        new_tokens = max(0, user.get('token', 69) - int(amount))
+        await DARKXSIDE78.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {"token": new_tokens}}
+        )
+        await message.reply_text(f"✅ Removed {amount} tokens from user {user['_id']}. New balance: {new_tokens}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /remove_token <amount> @username/userid")
+
+@Client.on_message(filters.command("add_premium") & filters.user(Config.ADMIN))
+async def add_premium(bot: Client, message: Message):
+    try:
+        cmd, user_ref, duration = message.text.split(maxsplit=2)
+        duration = duration.lower()
+        
+        # Get user
+        if user_ref.startswith("@"):
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        # Calculate expiration
+        if duration == "lifetime":
+            expiry = datetime(9999, 12, 31)
+        else:
+            num, unit = duration[:-1], duration[-1]
+            unit_map = {
+                'h': 'hours',
+                'd': 'days',
+                'm': 'months',
+                'y': 'years'
+            }
+            delta = timedelta(**{unit_map[unit]: int(num)})
+            expiry = datetime.now() + delta
+        
+        await DARKXSIDE78.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {
+                "is_premium": True,
+                "premium_expiry": expiry
+            }}
+        )
+        await message.reply_text(f"✅ Premium added until {expiry}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /add_premium @username/userid 1d (1h/1m/1y/lifetime)")
+
+@Client.on_message(filters.command("remove_premium") & filters.user(Config.ADMIN))
+async def remove_premium(bot: Client, message: Message):
+    try:
+        _, user_ref = message.text.split(maxsplit=1)
+        
+        if user_ref.startswith("@"):
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
+        else:
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
+        
+        if not user:
+            return await message.reply_text("User not found!")
+        
+        await DARKXSIDE78.col.update_one(
+            {"_id": user['_id']},
+            {"$set": {
+                "is_premium": False,
+                "premium_expiry": None
+            }}
+        )
+        await message.reply_text("✅ Premium access removed")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}\nUsage: /remove_premium @username/userid")
+
 
 @Client.on_message(filters.private & filters.command("tutorial"))
 async def tutorial(bot: Client, message: Message):
     user_id = message.from_user.id
-    format_template = await codeflixbots.get_format_template(user_id)
+    format_template = await DARKXSIDE78.get_format_template(user_id)
     await message.reply_text(
         text=Txt.FILE_NAME_TXT.format(format_template=format_template),
         disable_web_page_preview=True,
@@ -44,7 +178,7 @@ async def tutorial(bot: Client, message: Message):
 
 @Client.on_message(filters.command(["stats", "status"]) & filters.user(Config.ADMIN))
 async def get_stats(bot, message):
-    total_users = await codeflixbots.total_users_count()
+    total_users = await DARKXSIDE78.total_users_count()
     uptime = time.strftime("%Hh%Mm%Ss", time.gmtime(time.time() - bot.uptime))    
     start_t = time.time()
     st = await message.reply('**Accessing The Details.....**')    
@@ -55,14 +189,14 @@ async def get_stats(bot, message):
 @Client.on_message(filters.command("broadcast") & filters.user(Config.ADMIN) & filters.reply)
 async def broadcast_handler(bot: Client, m: Message):
     await bot.send_message(Config.LOG_CHANNEL, f"{m.from_user.mention} or {m.from_user.id} Is Started The Broadcast......")
-    all_users = await codeflixbots.get_all_users()
+    all_users = await DARKXSIDE78.get_all_users()
     broadcast_msg = m.reply_to_message
     sts_msg = await m.reply_text("Broadcast Started..!") 
     done = 0
     failed = 0
     success = 0
     start_time = time.time()
-    total_users = await codeflixbots.total_users_count()
+    total_users = await DARKXSIDE78.total_users_count()
     async for user in all_users:
         sts = await send_msg(user['_id'], broadcast_msg)
         if sts == 200:
@@ -70,7 +204,7 @@ async def broadcast_handler(bot: Client, m: Message):
         else:
            failed += 1
         if sts == 400:
-           await codeflixbots.delete_user(user['_id'])
+           await DARKXSIDE78.delete_user(user['_id'])
         done += 1
         if not done % 20:
            await sts_msg.edit(f"Broadcast In Progress: \n\nTotal Users {total_users} \nCompleted : {done} / {total_users}\nSuccess : {success}\nFailed : {failed}")
