@@ -1,6 +1,8 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from helper.database import codeflixbots
+from helper.database import DARKXSIDE78
+from datetime import datetime, timedelta
+import pytz  # If using timezones
 
 @Client.on_message(filters.private & filters.command("autorename"))
 async def auto_rename_command(client, message):
@@ -19,7 +21,7 @@ async def auto_rename_command(client, message):
     format_template = command_parts[1].strip()
 
     # Save the format template in the database
-    await codeflixbots.set_format_template(user_id, format_template)
+    await DARKXSIDE78.set_format_template(user_id, format_template)
 
     # Send confirmation message with the template in monospaced font
     await message.reply_text(
@@ -49,7 +51,7 @@ async def handle_media_selection(client, callback_query):
     media_type = callback_query.data.split("_", 1)[1]  # Extract media type from callback data
 
     # Save the preferred media type in the database
-    await codeflixbots.set_media_preference(user_id, media_type)
+    await DARKXSIDE78.set_media_preference(user_id, media_type)
 
     # Acknowledge the callback and send confirmation
     await callback_query.answer(f"Media preference set to: {media_type} ✅")
