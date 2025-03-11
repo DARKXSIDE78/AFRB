@@ -1,4 +1,4 @@
-pyrogram
+pyrofork
 TgCrypto
 motor
 dnspython
@@ -7,5 +7,5 @@ Pillow
 aiohttp
 pytz
 humanize
-pyromod
 ffmpeg-python
+shortzy
