@@ -13,9 +13,9 @@ class Database:
         except Exception as e:
             logging.error(f"Failed to connect to MongoDB: {e}")
             raise e
-        self.codeflixbots = self._client[database_name]
-        self.col = self.codeflixbots.user
-        self.token_links = self.codeflixbots.token_links  # Token links collection
+        self.DARKXSIDE78 = self._client[database_name]
+        self.col = self.DARKXSIDE78.user
+        self.token_links = self.DARKXSIDE78.token_links  # Token links collection
 
     def new_user(self, id):
         return dict(
@@ -262,4 +262,4 @@ class Database:
     async def set_custom_tag(self, user_id, custom_tag):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
 
-codeflixbots = Database(Config.DB_URL, Config.DB_NAME)
+DARKXSIDE78 = Database(Config.DB_URL, Config.DB_NAME)
