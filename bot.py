@@ -1,7 +1,4 @@
-import aiohttp
-import asyncio
-import warnings
-import pytz
+import aiohttp, asyncio, warnings, pytz
 from datetime import datetime, timedelta
 from pytz import timezone
 from pyrogram import Client, __version__
@@ -10,6 +7,7 @@ from config import Config
 from aiohttp import web
 from route import web_server
 import pyrogram.utils
+import pyromod
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
 import time
@@ -35,7 +33,7 @@ class Bot(Client):
         self.start_time = time.time()
 
     async def ping_service(self):
-    """Send a ping request to the service to keep it awake."""
+        """Send a ping request to the service to keep it awake."""
         while True:
             try:
                 # Send a request to the web server to keep it alive
