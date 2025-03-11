@@ -3,7 +3,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from datetime import datetime, timedelta
-from helper.database import codeflixbots
+from helper.database import DARKXSIDE78
 from config import *
 from config import Config
 from pyrogram import Client, filters
@@ -22,15 +22,15 @@ async def add_tokens(bot: Client, message: Message):
         
         # Try to get user ID from mention or username
         if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
         else:
-            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
         
         if not user:
             return await message.reply_text("User not found!")
         
         new_tokens = int(amount) + user.get('token', 69)
-        await codeflixbots.col.update_one(
+        await DARKXSIDE78.col.update_one(
             {"_id": user['_id']},
             {"$set": {"token": new_tokens}}
         )
@@ -45,15 +45,15 @@ async def remove_tokens(bot: Client, message: Message):
         user_ref = " ".join(user_info).strip()
         
         if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
         else:
-            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
         
         if not user:
             return await message.reply_text("User not found!")
         
         new_tokens = max(0, user.get('token', 69) - int(amount))
-        await codeflixbots.col.update_one(
+        await DARKXSIDE78.col.update_one(
             {"_id": user['_id']},
             {"$set": {"token": new_tokens}}
         )
@@ -69,9 +69,9 @@ async def add_premium(bot: Client, message: Message):
         
         # Get user
         if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
         else:
-            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
         
         if not user:
             return await message.reply_text("User not found!")
@@ -90,7 +90,7 @@ async def add_premium(bot: Client, message: Message):
             delta = timedelta(**{unit_map[unit]: int(num)})
             expiry = datetime.now() + delta
         
-        await codeflixbots.col.update_one(
+        await DARKXSIDE78.col.update_one(
             {"_id": user['_id']},
             {"$set": {
                 "is_premium": True,
@@ -107,14 +107,14 @@ async def remove_premium(bot: Client, message: Message):
         _, user_ref = message.text.split(maxsplit=1)
         
         if user_ref.startswith("@"):
-            user = await codeflixbots.col.find_one({"username": user_ref[1:]})
+            user = await DARKXSIDE78.col.find_one({"username": user_ref[1:]})
         else:
-            user = await codeflixbots.col.find_one({"_id": int(user_ref)})
+            user = await DARKXSIDE78.col.find_one({"_id": int(user_ref)})
         
         if not user:
             return await message.reply_text("User not found!")
         
-        await codeflixbots.col.update_one(
+        await DARKXSIDE78.col.update_one(
             {"_id": user['_id']},
             {"$set": {
                 "is_premium": False,
@@ -128,7 +128,7 @@ async def remove_premium(bot: Client, message: Message):
 @Client.on_message(filters.private & filters.command(["token", "mytokens", "bal"]))
 async def check_tokens(client, message: Message):
     user_id = message.from_user.id
-    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    user_data = await DARKXSIDE78.col.find_one({"_id": user_id})
     
     if not user_data:
         return await message.reply_text("You're not registered yet! Send /start to begin.")
@@ -141,7 +141,7 @@ async def check_tokens(client, message: Message):
     if is_premium and premium_expiry:
         if datetime.now() > premium_expiry:
             is_premium = False
-            await codeflixbots.col.update_one(
+            await DARKXSIDE78.col.update_one(
                 {"_id": user_id},
                 {"$set": {"is_premium": False, "premium_expiry": None}}
             )
@@ -188,7 +188,7 @@ async def check_tokens(client, message: Message):
 async def token_buttons_handler(client, query: CallbackQuery):
     data = query.data
     user_id = query.from_user.id
-    user_data = await codeflixbots.col.find_one({"_id": user_id})
+    user_data = await DARKXSIDE78.col.find_one({"_id": user_id})
     
     if data == "gen_tokens":
         # Show token generation options
@@ -228,7 +228,7 @@ logging.basicConfig(level=logging.INFO)
 @Client.on_message(filters.command("gentoken") & filters.private)
 async def generate_token(client: Client, message: Message):
     user_id = message.from_user.id
-    db = codeflixbots
+    db = DARKXSIDE78
     
     # Generate unique token ID
     token_id = "".join(random.choices(string.ascii_uppercase + string.digits, k=Config.TOKEN_ID_LENGTH))
@@ -257,7 +257,7 @@ async def handle_token_redemption(client: Client, message: Message, token_id: st
     
     try:
         # Retrieve token data from the database
-        token_data = await codeflixbots.get_token_link(token_id)
+        token_data = await DARKXSIDE78.get_token_link(token_id)
         
         if not token_data:
             return await message.reply("❌ Invalid or expired token link")
@@ -275,13 +275,13 @@ async def handle_token_redemption(client: Client, message: Message, token_id: st
             return await message.reply("❌ This token link belongs to another user")
         
         # Atomic update of tokens in the database using update_one
-        await codeflixbots.col.update_one(
+        await DARKXSIDE78.col.update_one(
             {"_id": user_id},
             {"$inc": {"token": token_data['tokens']}}
         )
         
         # Mark the token as used
-        await codeflixbots.mark_token_used(token_id)
+        await DARKXSIDE78.mark_token_used(token_id)
         
         await message.reply(f"✅ Success! {token_data['tokens']} tokens added to your account!")
     
@@ -297,7 +297,7 @@ async def start(client, message: Message):
         return
     
     user = message.from_user
-    await codeflixbots.add_user(client, message)
+    await DARKXSIDE78.add_user(client, message)
 
     # Initial interactive text and sticker sequence
     m = await message.reply_text("ᴏɴᴇᴇ-ᴄʜᴀɴ!, ʜᴏᴡ ᴀʀᴇ ʏᴏᴜ \nᴡᴀɪᴛ ᴀ ᴍᴏᴍᴇɴᴛ. . .")
@@ -415,7 +415,7 @@ async def cb_handler(client, query: CallbackQuery):
             ])
         )
     elif data == "file_names":
-        format_template = await codeflixbots.get_format_template(user_id)
+        format_template = await DARKXSIDE78.get_format_template(user_id)
         await query.message.edit_text(
             text=Txt.FILE_NAME_TXT.format(format_template=format_template),
             disable_web_page_preview=True,
