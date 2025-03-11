@@ -1,4 +1,7 @@
-import aiohttp, asyncio, warnings, pytz
+import aiohttp
+import asyncio
+import warnings
+import pytz
 from datetime import datetime, timedelta
 from pytz import timezone
 from pyrogram import Client, __version__
@@ -70,5 +73,26 @@ class Bot(Client):
 
             except Exception as e:
                 print(f"Failed to send message in chat {chat_id}: {e}")
+
+        # Start the Render pinger task
+        asyncio.create_task(self.render_pinger())
+
+    async def render_pinger(self):
+        """Pings the Render app URL every 8 minutes to keep it awake."""
+        while True:
+            try:
+                # Replace with your Render app's URL
+                render_url = "https://afrb-runt.onrender.com"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(render_url) as response:
+                        if response.status == 200:
+                            print(f"Pinged Render app successfully at {datetime.now(timezone('Asia/Kolkata'))}")
+                        else:
+                            print(f"Failed to ping Render app. Status: {response.status}")
+            except Exception as e:
+                print(f"Error pinging Render app: {e}")
+
+            # Wait for 8 minutes before pinging again
+            await asyncio.sleep(600)  # 8 minutes = 480 seconds
 
 Bot().run()
