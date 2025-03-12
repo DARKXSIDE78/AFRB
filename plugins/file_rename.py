@@ -107,49 +107,36 @@ def extract_quality(filename):
     # Try Quality Patterns
     match5 = re.search(pattern5, filename)
     if match5:
-        print("Matched Pattern 5")
         quality5 = match5.group(1) or match5.group(2)  # Extracted quality from both patterns
-        print(f"Quality: {quality5}")
         return quality5
 
     match6 = re.search(pattern6, filename)
     if match6:
-        print("Matched Pattern 6")
         quality6 = "4k"
-        print(f"Quality: {quality6}")
         return quality6
 
     match7 = re.search(pattern7, filename)
     if match7:
-        print("Matched Pattern 7")
         quality7 = "2k"
-        print(f"Quality: {quality7}")
         return quality7
 
     match8 = re.search(pattern8, filename)
     if match8:
-        print("Matched Pattern 8")
         quality8 = "HdRip"
-        print(f"Quality: {quality8}")
         return quality8
 
     match9 = re.search(pattern9, filename)
     if match9:
-        print("Matched Pattern 9")
         quality9 = "4kX264"
-        print(f"Quality: {quality9}")
         return quality9
 
     match10 = re.search(pattern10, filename)
     if match10:
-        print("Matched Pattern 10")
         quality10 = "4kx265"
-        print(f"Quality: {quality10}")
         return quality10    
 
     # Return "Unknown" if no pattern matches
     unknown_quality = "Unknown"
-    print(f"Quality: {unknown_quality}")
     return unknown_quality
     
 
@@ -157,37 +144,31 @@ def extract_episode_number(filename):
     # Try Pattern 1
     match = re.search(pattern1, filename)
     if match:
-        print("Matched Pattern 1")
         return match.group(2)  # Extracted episode number
     
     # Try Pattern 2
     match = re.search(pattern2, filename)
     if match:
-        print("Matched Pattern 2")
         return match.group(2)  # Extracted episode number
 
     # Try Pattern 3
     match = re.search(pattern3, filename)
     if match:
-        print("Matched Pattern 3")
         return match.group(1)  # Extracted episode number
 
     # Try Pattern 3_2
     match = re.search(pattern3_2, filename)
     if match:
-        print("Matched Pattern 3_2")
         return match.group(1)  # Extracted episode number
         
     # Try Pattern 4
     match = re.search(pattern4, filename)
     if match:
-        print("Matched Pattern 4")
         return match.group(2)  # Extracted episode number
 
     # Try Pattern X
     match = re.search(patternX, filename)
     if match:
-        print("Matched Pattern X")
         return match.group(1)  # Extracted episode number
         
     # Return None if no pattern matches
@@ -196,7 +177,6 @@ def extract_episode_number(filename):
 # Example Usage:
 filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @Codeflix_Bots.mkv"
 episode_number = extract_episode_number(filename)
-print(f"Extracted Episode Number: {episode_number}")    
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message: Message):
