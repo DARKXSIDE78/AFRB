@@ -37,7 +37,7 @@ class Bot(Client):
             try:
                 # Send a request to the web server to keep it alive
                 async with aiohttp.ClientSession() as session:
-                    async with session.get("https://afrb-runt.onrender.com") as response:
+                    async with session.get("https://afrb-b6a8.onrender.com") as response:
                         if response.status == 200:
                             print("Ping successful")
                         else:
